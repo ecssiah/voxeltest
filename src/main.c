@@ -55,7 +55,58 @@ typedef struct VertexData VertexData;
 struct VertexData
 {
     f32 position_array[3];
+    f32 normal_array[3];
     f32 uv_array[2];
+};
+
+VertexData voxel_vertex_array[6][4] = {
+    // +X
+    {
+	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+1, +0, +0}, {0, 0}},
+	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+1, +0, +0}, {1, 0}},
+	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+1, +0, +0}, {1, 1}},
+	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+1, +0, +0}, {0, 1}},
+    },
+
+    // -X
+    {
+	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {-1, +0, +0}, {0, 0}},
+	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {-1, +0, +0}, {1, 0}},
+	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {-1, +0, +0}, {1, 1}},
+	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {-1, +0, +0}, {0, 1}},
+    },
+
+    // +Y
+    {
+	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+0, +1, +0}, {0, 0}},
+	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+0, +1, +0}, {1, 0}},
+	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +1, +0}, {1, 1}},
+	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +1, +0}, {0, 1}},
+    },
+
+    // -Y
+    {
+	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, -1, +0}, {0, 0}},
+	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, -1, +0}, {1, 0}},
+	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+0, -1, +0}, {1, 1}},
+	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+0, -1, +0}, {0, 1}},
+    },
+
+    // +Z
+    {
+	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {0, 0}},
+	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {0, 1}},
+	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {1, 1}},
+	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {1, 0}},
+    },
+
+    // -Z
+    {
+	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {0, 0}},
+	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {0, 1}},
+	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {1, 1}},
+	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {1, 0}},
+    }
 };
 
 typedef struct GpuMesh GpuMesh;
@@ -357,25 +408,6 @@ int main()
 
     free(vert_src);
     free(frag_src);
-    
-    VertexData vertex_array[] = {
-	{
-	    {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-	    {+0.0f, +0.0f}
-	},
-	{
-	    {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-	    {+1.0f, +0.0f}
-	},
-	{
-	    {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
-	    {+1.0f, +1.0f}
-	},
-	{
-	    {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
-	    {+0.0f, +0.0f}
-	},
-    };
 
     u32 index_array[] = {
 	0, 1, 2,
