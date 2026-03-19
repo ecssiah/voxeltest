@@ -44,6 +44,7 @@ endif()
 target_sources(
     voxeltest 
     PRIVATE
+    external/jsk/jsk_log.c
     external/glad/src/glad.c
 )
 

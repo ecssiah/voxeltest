@@ -9,6 +9,7 @@
 #include "stb_image.h"
 
 #include "jsk.h"
+#include "jsk_log.h"
 #include "jsk_gl.h"
 
 #define WINDOW_WIDTH 1024
@@ -75,6 +76,8 @@ typedef u8 CellFaceMask;
 #define CELL_FACE_MASK_POS_Z ((CellFaceMask)(1 << CELL_FACE_POS_Z))
 #define CELL_FACE_MASK_NEG_Z ((CellFaceMask)(1 << CELL_FACE_NEG_Z))
 
+#define GET_CELL_FACE(cell_face_mask) ((ECellFace)(__builtin_ctz(cell_face_mask)))
+
 typedef enum EBlockType EBlockType;
 enum EBlockType
 {
@@ -103,7 +106,10 @@ struct VertexData
     f32 uv_array[2];
 };
 
-static f32 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][4][3] = {
+#define VERTICES_PER_FACE 4
+#define INDICES_PER_FACE 6
+
+static f32 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][VERTICES_PER_FACE][3] = {
     // CELL_FACE_POS_X
     {
 	{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
@@ -173,7 +179,7 @@ static f32 CELL_FACE_NORMAL_ARRAY[CELL_FACE_COUNT][3] = {
     { +0.0f, +0.0f, -1.0f },
 };
 
-static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][4][2] = {
+static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][VERTICES_PER_FACE][3] = {
     // CELL_FACE_POS_X
     {
 	{+0.0f, +0.0f},
@@ -226,17 +232,25 @@ static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][4][2] = {
 typedef struct GpuMesh GpuMesh;
 struct GpuMesh
 {
+    GLuint vao_id;
+    GLuint vbo_id;
+    GLuint ebo_id;
+    
     VertexData* vertex_array;
-    u32* index_array;
+    
+    u32 vertex_count;
+    u32 vertex_capacity;
 
-    size_t vertex_count;
-    size_t index_count;
+    u32* index_array;
+    
+    u32 index_count;
+    u32 index_capacity;
 };
 
 typedef struct SectorFace SectorFace;
 struct SectorFace
 {
-    vec3 world_position;
+    ivec3 cell_coordinate;
     
     ECellFace cell_face;
     EBlockType block_type;
@@ -290,6 +304,7 @@ static World world;
 
 static GLContext gl_context;
 static SectorMesh sector_mesh_array[SECTOR_VOLUME_IN_CELLS];
+static GpuMesh gpu_mesh_array[SECTOR_VOLUME_IN_CELLS];
 
 u32 map_sector_coordinate_to_index(ivec3 sector_coordinate)
 {
@@ -426,7 +441,11 @@ CellFaceMask map_get_cell_face_mask(u32 x, u32 y, u32 z)
 
 void map_init()
 {
-    srand((u32)time(NULL));
+    u32 seed = 813;
+    
+    /* u32 seed = (u32)time(NULL); */
+    
+    srand(seed);
 
     u32 sector_index;
     u32 cell_index;
@@ -504,46 +523,14 @@ void setup_opengl()
     glAttachShader(gl_context.program_id, frag_shader);
     glLinkProgram(gl_context.program_id);
 
+    GLint texture_sampler_location = glGetUniformLocation(gl_context.program_id, "u_texture_sampler");
+    glUniform1i(texture_sampler_location, 0);
+
     glDeleteShader(vert_shader);
     glDeleteShader(frag_shader);
 
     free(vert_src);
     free(frag_src);
-
-    u32 index_array[] = {
-	0, 1, 2,
-	2, 3, 0
-    };
-
-    glGenVertexArrays(1, &gl_context.vao_id);
-    glGenBuffers(1, &gl_context.vbo_id);
-
-    glBindVertexArray(gl_context.vao_id);
-
-    glBindBuffer(GL_ARRAY_BUFFER, gl_context.vbo_id);
-
-    glVertexAttribPointer(
-	0,
-	3,
-	GL_FLOAT,
-	GL_FALSE,
-	sizeof(VertexData),
-	(void*)0
-    );
-
-    glVertexAttribPointer(
-	1,
-	2,
-	GL_FLOAT,
-	GL_FALSE,
-	sizeof(VertexData),
-	(void*)(offsetof(VertexData, uv_array))
-    );
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    
-    glBufferData(GL_ARRAY_BUFFER, sizeof(voxel_vertex_array), voxel_vertex_array, GL_STATIC_DRAW);
 
     int width;
     int height;
@@ -554,18 +541,11 @@ void setup_opengl()
     glGenTextures(1, &gl_context.texture_id);
     glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data_array);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-}
-
-void render_emit_sector_mesh_face(ivec3 world_coordinate, CellFaceMask cell_face_mask, EBlockType block_type)
-{
-
+    glGenerateMipmap(GL_TEXTURE_2D);
 }
 
 void render_generate_sector_mesh(u32 sector_index)
@@ -586,23 +566,22 @@ void render_generate_sector_mesh(u32 sector_index)
 	{
 	    continue;
 	}
+
+	ivec3 cell_coordinate;
+	map_cell_index_to_coordinate(cell_index, cell_coordinate);
 	    
-	map_indices_to_world_coordinate(sector_index, cell_index, world_coordinate);
-
-	vec3 world_position;
-	map_world_coordinate_to_position(world_coordinate, world_position);
-
 	CellFaceMask cell_face_mask_test = cell->cell_face_mask;
 
 	while (cell_face_mask_test)
 	{
-	    ECellFace cell_face = (ECellFace)__builtin_ctz(cell_face_mask_test);
+	    ECellFace cell_face = GET_CELL_FACE(cell_face_mask_test);
 
 	    SectorFace* sector_face = &sector_mesh->sector_face_array[sector_mesh->count];
 
 	    sector_face->cell_face = cell_face;
 	    sector_face->block_type = cell->block_type;
-	    glm_vec3_copy(world_position, sector_face->world_position);
+	    
+	    glm_ivec3_copy(cell_coordinate, sector_face->cell_coordinate);
 
 	    sector_mesh->count += 1;
 
@@ -611,13 +590,168 @@ void render_generate_sector_mesh(u32 sector_index)
     }
 }
 
-void render_upload_sector_mesh_to_gpu(u32 sector_index)
+void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
 {
+    vec3 local_position;
+    local_position[0] = (f32)sector_face->cell_coordinate[0];
+    local_position[1] = (f32)sector_face->cell_coordinate[1];
+    local_position[2] = (f32)sector_face->cell_coordinate[2];
+
+    const f32* normal_array = CELL_FACE_NORMAL_ARRAY[sector_face->cell_face];
+
+    u32 base_index = gpu_mesh->vertex_count;
     
+    u32 vertex_index;
+    for (vertex_index = 0; vertex_index < VERTICES_PER_FACE; ++vertex_index)
+    {
+	const f32* vertex_array = CELL_FACE_VERTEX_ARRAY[sector_face->cell_face][vertex_index];
+	const f32* uv_array = CELL_FACE_UV_ARRAY[sector_face->cell_face][vertex_index];
+
+	VertexData vertex_data;
+	vertex_data.position_array[0] = local_position[0] + vertex_array[0];
+	vertex_data.position_array[1] = local_position[1] + vertex_array[1];
+	vertex_data.position_array[2] = local_position[2] + vertex_array[2];
+
+	vertex_data.normal_array[0] = normal_array[0];
+	vertex_data.normal_array[1] = normal_array[1];
+	vertex_data.normal_array[2] = normal_array[2];
+
+	vertex_data.uv_array[0] = uv_array[0];
+	vertex_data.uv_array[1] = uv_array[1];
+
+	gpu_mesh->vertex_array[gpu_mesh->vertex_count] = vertex_data;
+
+	gpu_mesh->vertex_count += 1;
+    }
+
+    gpu_mesh->index_array[gpu_mesh->index_count + 0] = base_index + 0;
+    gpu_mesh->index_array[gpu_mesh->index_count + 1] = base_index + 1;
+    gpu_mesh->index_array[gpu_mesh->index_count + 2] = base_index + 2;
+    gpu_mesh->index_array[gpu_mesh->index_count + 3] = base_index + 0;
+    gpu_mesh->index_array[gpu_mesh->index_count + 4] = base_index + 2;
+    gpu_mesh->index_array[gpu_mesh->index_count + 5] = base_index + 3;
+
+    gpu_mesh->index_count += INDICES_PER_FACE;
+}
+
+void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
+{
+    LOG_INFO("Sector Index: %u", sector_index);
+    
+    SectorMesh* sector_mesh = &sector_mesh_array[sector_index];
+    GpuMesh* gpu_mesh = &gpu_mesh_array[sector_index];
+
+    gpu_mesh->vertex_count = 0;
+    gpu_mesh->index_count = 0;
+
+    u32 required_vertex_capacity = sector_mesh->count * VERTICES_PER_FACE;
+    u32 required_index_capacity = sector_mesh->count * INDICES_PER_FACE;
+
+    if (gpu_mesh->vertex_capacity < required_vertex_capacity)
+    {
+	VertexData* new_vertex_data = malloc(sizeof(VertexData) * required_vertex_capacity);
+
+	assert(new_vertex_data);
+	
+	gpu_mesh->vertex_capacity = required_vertex_capacity;
+	gpu_mesh->vertex_array = new_vertex_data;
+    }
+
+    if (gpu_mesh->index_capacity < required_index_capacity)
+    {
+	u32* new_index_data = malloc(sizeof(u32) * required_index_capacity);
+
+	assert(new_index_data);
+	
+	gpu_mesh->index_capacity = required_index_capacity;
+	gpu_mesh->index_array = new_index_data;
+    }
+
+    LOG_INFO("GpuMesh Capacities Updated");
+    
+    u32 face_index;
+    for (face_index = 0; face_index < sector_mesh->count; ++face_index)
+    {
+	SectorFace* sector_face = &sector_mesh->sector_face_array[face_index];
+
+	render_emit_sector_face(sector_face, gpu_mesh);
+    }
+
+    LOG_INFO("Sector Faces Emitted");
+    
+    glGenVertexArrays(1, &gpu_mesh->vao_id);
+    
+    glGenBuffers(1, &gpu_mesh->vbo_id);
+    glGenBuffers(1, &gpu_mesh->ebo_id);
+
+    glBindVertexArray(gpu_mesh->vao_id);
+    glBindBuffer(GL_ARRAY_BUFFER, gpu_mesh->vbo_id);
+
+    glVertexAttribPointer(
+	0,
+	3,
+	GL_FLOAT,
+	GL_FALSE,
+	sizeof(VertexData),
+	(void*)0
+    );
+
+    glVertexAttribPointer(
+	0,
+	3,
+	GL_FLOAT,
+	GL_FALSE,
+	sizeof(VertexData),
+	(void*)(offsetof(VertexData, normal_array))
+    );
+
+    glVertexAttribPointer(
+	1,
+	2,
+	GL_FLOAT,
+	GL_FALSE,
+	sizeof(VertexData),
+	(void*)(offsetof(VertexData, uv_array))
+    );
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+
+    LOG_INFO("GL Buffers Setup");
+}
+
+void render_upload_gpu_mesh(u32 sector_index)
+{
+    GpuMesh* gpu_mesh = &gpu_mesh_array[sector_index];
+
+    glBindBuffer(GL_ARRAY_BUFFER, gpu_mesh->vbo_id);
+
+    glBufferData(
+	GL_ARRAY_BUFFER,
+	gpu_mesh->vertex_count * sizeof(VertexData),
+	gpu_mesh->vertex_array,
+	GL_STATIC_DRAW
+    );
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gpu_mesh->ebo_id);
+
+    glBufferData(
+	GL_ELEMENT_ARRAY_BUFFER,
+	gpu_mesh->index_count * sizeof(u32),
+	gpu_mesh->index_array,
+	GL_STATIC_DRAW
+    );
 }
 
 void render_init()
 {
+    setup_opengl();
+
+    LOG_INFO("OpenGL Setup");
+    
     u32 sector_index;
     
     for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
@@ -625,18 +759,21 @@ void render_init()
 	render_generate_sector_mesh(sector_index);
     }
 
+    LOG_INFO("Sector Meshes Generated");
+
     for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
     {
-	render_upload_sector_mesh_to_gpu(sector_index);
+	render_convert_sector_mesh_to_gpu_mesh(sector_index);
+	render_upload_gpu_mesh(sector_index);
     }
+
+    LOG_INFO("Gpu Meshes Generated");
 }
 
 int main()
 {
-    setup_opengl();
-    
+    log_init();
     map_init();
-
     render_init();
     
     while (!glfwWindowShouldClose(gl_context.window))
@@ -651,11 +788,28 @@ int main()
 
         glUseProgram(gl_context.program_id);
         glBindVertexArray(gl_context.vao_id);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
+
+	u32 sector_index;
+	for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
+	{
+	    GpuMesh* gpu_mesh = &gpu_mesh_array[sector_index];
+
+	    glDrawElements(
+		GL_TRIANGLES,
+		gpu_mesh->index_count,
+		GL_UNSIGNED_INT,
+		0
+	    );
+	}
 
         glfwSwapBuffers(gl_context.window);
         glfwPollEvents();
     }
 
     glfwTerminate();
+
+    log_destroy();
 }
