@@ -112,50 +112,50 @@ struct VertexData
 static vec3 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][VERTEX_COUNT_PER_FACE] = {
     // CELL_FACE_POS_X
     {
+	{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
 	{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
 	{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
 	{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
-	{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
     
     // CELL_FACE_NEG_X
     {
+        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
-        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
     },
 
     // CELL_FACE_POS_Y
     {
-        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
     },
 
     // CELL_FACE_NEG_Y
     {
-        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
         {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
 
     // CELL_FACE_POS_Z
     {
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
         {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
         {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
-        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
 
     // CELL_FACE_NEG_Z
     {
+        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
         {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
-        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
     },
 };
 
@@ -182,50 +182,50 @@ static vec3 CELL_FACE_NORMAL_ARRAY[CELL_FACE_COUNT] = {
 static vec3 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][VERTEX_COUNT_PER_FACE] = {
     // CELL_FACE_POS_X
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 
     // CELL_FACE_NEG_X
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 
     // CELL_FACE_POS_Y
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 
     // CELL_FACE_NEG_Y
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 
     // CELL_FACE_POS_Z
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 
     // CELL_FACE_NEG_Z
     {
-	{+0.0f, +0.0f},
-	{+1.0f, +0.0f},
-	{+1.0f, +1.0f},
 	{+0.0f, +1.0f},
+	{+1.0f, +1.0f},
+	{+1.0f, +0.0f},
+	{+0.0f, +0.0f},
     },
 };
 
