@@ -350,6 +350,21 @@ static GLContext gl_context;
 static SectorMesh sector_mesh_array[SECTOR_VOLUME_IN_CELLS];
 static GpuMesh gpu_mesh_array[SECTOR_VOLUME_IN_CELLS];
 
+boolean map_world_coordinate_is_valid(u32 x, u32 y, u32 z)
+{
+    return x < WORLD_SIZE_IN_CELLS && y < WORLD_SIZE_IN_CELLS && z < WORLD_SIZE_IN_CELLS;
+}
+
+boolean map_sector_coordinate_is_valid(u32 x, u32 y, u32 z)
+{
+    return x < WORLD_SIZE_IN_SECTORS && y < WORLD_SIZE_IN_SECTORS && z < WORLD_SIZE_IN_SECTORS;
+}
+
+boolean map_cell_coordinate_is_valid(u32 x, u32 y, u32 z)
+{
+    return x < SECTOR_SIZE_IN_CELLS && y < SECTOR_SIZE_IN_CELLS && z < SECTOR_SIZE_IN_CELLS;
+}
+
 u32 map_sector_coordinate_to_index(ivec3 sector_coordinate)
 {
     assert(sector_coordinate[0] >= 0 && sector_coordinate[0] < WORLD_SIZE_IN_SECTORS);
@@ -461,7 +476,7 @@ void map_world_coordinate_to_position(ivec3 world_coordinate, vec3 out_world_pos
 
 boolean map_is_solid(u32 x, u32 y, u32 z)
 {   
-    if (x >= WORLD_SIZE_IN_CELLS || y >= WORLD_SIZE_IN_CELLS || z >= WORLD_SIZE_IN_CELLS)
+    if (!map_world_coordinate_is_valid(x, y, z))
     {
 	return False;
     }
@@ -493,6 +508,19 @@ CellFaceMask map_get_cell_face_mask(u32 x, u32 y, u32 z)
     return cell_face_mask;
 }
 
+void map_set_block_type(u32 x, u32 y, u32 z, EBlockType block_type)
+{
+    if (map_world_coordinate_is_valid(x, y, z))
+    {
+	ivec3 world_coordinate = {x, y, z};
+
+	u32 sector_index = map_world_coordinate_to_sector_index(world_coordinate);
+	u32 cell_index = map_world_coordinate_to_cell_index(world_coordinate);
+	
+	world.sector_array[sector_index].cell_array[cell_index].block_type = block_type;
+    }
+}
+
 void map_init()
 {
     u32 seed = 813;
@@ -516,10 +544,14 @@ void map_init()
 	    cell->cell_index = cell_index;
 	    cell->cell_face_mask = 0;
 
-	    EBlockType block_type = (EBlockType)(rand() % BLOCK_TYPE_COUNT);
-	    cell->block_type = block_type;
+	    /* EBlockType block_type = (EBlockType)(rand() % BLOCK_TYPE_COUNT); */
+	    /* cell->block_type = block_type; */
+
+	    cell->block_type = BLOCK_TYPE_NONE;
 	}
     }
+
+    map_set_block_type(0, 0, 0, BLOCK_TYPE_EAGLE);
 
     ivec3 world_coordinate;
     
