@@ -44,22 +44,55 @@
 
 #define SECTOR_VOLUME_IN_VERTICES (SECTOR_VOLUME_IN_CELLS * 6)
 
-typedef u8 VisibilityMask;
+typedef enum ECellFace ECellFace;
+enum ECellFace
+{
+    CELL_FACE_POS_X = 0,
+    CELL_FACE_NEG_X,
+    CELL_FACE_POS_Y,
+    CELL_FACE_NEG_Y,
+    CELL_FACE_POS_Z,
+    CELL_FACE_NEG_Z,
 
-#define FACE_POS_X (1 << 0)
-#define FACE_NEG_X (1 << 1)
-#define FACE_POS_Y (1 << 2)
-#define FACE_NEG_Y (1 << 3)
-#define FACE_POS_Z (1 << 4)
-#define FACE_NEG_Z (1 << 5)
+    CELL_FACE_COUNT,
+};
 
-static const char* VISIBILITY_MASK_TO_STRING[6] = {
-    "FACE_POS_X",
-    "FACE_NEG_X",
-    "FACE_POS_Y",
-    "FACE_NEG_Y",
-    "FACE_POS_Z",
-    "FACE_NEG_Z",
+static const char* CELL_FACE_TO_STRING[CELL_FACE_COUNT] = {
+    "CELL_FACE_POS_X",
+    "CELL_FACE_NEG_X",
+    "CELL_FACE_POS_Y",
+    "CELL_FACE_NEG_Y",
+    "CELL_FACE_POS_Z",
+    "CELL_FACE_NEG_Z",
+};
+
+typedef u8 CellFaceMask;
+
+#define CELL_FACE_MASK_POS_X ((CellFaceMask)(1 << CELL_FACE_POS_X))
+#define CELL_FACE_MASK_NEG_X ((CellFaceMask)(1 << CELL_FACE_NEG_X))
+#define CELL_FACE_MASK_POS_Y ((CellFaceMask)(1 << CELL_FACE_POS_Y))
+#define CELL_FACE_MASK_NEG_Y ((CellFaceMask)(1 << CELL_FACE_NEG_Y))
+#define CELL_FACE_MASK_POS_Z ((CellFaceMask)(1 << CELL_FACE_POS_Z))
+#define CELL_FACE_MASK_NEG_Z ((CellFaceMask)(1 << CELL_FACE_NEG_Z))
+
+typedef enum EBlockType EBlockType;
+enum EBlockType
+{
+    BLOCK_TYPE_NONE = 0,
+    BLOCK_TYPE_LION,
+    BLOCK_TYPE_EAGLE,
+    BLOCK_TYPE_WOLF,
+    BLOCK_TYPE_HORSE,
+
+    BLOCK_TYPE_COUNT,
+};
+
+static const char* BLOCK_TYPE_TO_STRING[BLOCK_TYPE_COUNT] = {
+    "BLOCK_TYPE_NONE",
+    "BLOCK_TYPE_LION",
+    "BLOCK_TYPE_EAGLE",
+    "BLOCK_TYPE_WOLF",
+    "BLOCK_TYPE_HORSE"
 };
 
 typedef struct VertexData VertexData;
@@ -70,54 +103,124 @@ struct VertexData
     f32 uv_array[2];
 };
 
-VertexData voxel_vertex_array[6][4] = {
-    // FACE_POS_X
+static f32 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][4][3] = {
+    // CELL_FACE_POS_X
     {
-	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+1, +0, +0}, {0, 0}},
-	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+1, +0, +0}, {1, 0}},
-	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+1, +0, +0}, {1, 1}},
-	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+1, +0, +0}, {0, 1}},
+	{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+	{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+	{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+	{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+    },
+    
+    // CELL_FACE_NEG_X
+    {
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
     },
 
-    // FACE_NEG_X
+    // CELL_FACE_POS_Y
     {
-	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {-1, +0, +0}, {0, 0}},
-	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {-1, +0, +0}, {1, 0}},
-	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {-1, +0, +0}, {1, 1}},
-	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {-1, +0, +0}, {0, 1}},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
     },
 
-    // FACE_POS_Y
+    // CELL_FACE_NEG_Y
     {
-	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+0, +1, +0}, {0, 0}},
-	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {+0, +1, +0}, {1, 0}},
-	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +1, +0}, {1, 1}},
-	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +1, +0}, {0, 1}},
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
     },
 
-    // FACE_NEG_Y
+    // CELL_FACE_POS_Z
     {
-	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, -1, +0}, {0, 0}},
-	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, -1, +0}, {1, 0}},
-	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+0, -1, +0}, {1, 1}},
-	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {+0, -1, +0}, {0, 1}},
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
 
-    // FACE_POS_Z
+    // CELL_FACE_NEG_Z
     {
-	{{-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {0, 0}},
-	{{-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {0, 1}},
-	{{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {1, 1}},
-	{{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS}, {+0, +0, +1}, {1, 0}},
+        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+    },
+};
+
+static f32 CELL_FACE_NORMAL_ARRAY[CELL_FACE_COUNT][3] = {
+    // CELL_FACE_POS_X
+    { +1.0f, +0.0f, +0.0f },
+
+    // CELL_FACE_NEG_X
+    { -1.0f, +0.0f, +0.0f },
+
+    // CELL_FACE_POS_Y
+    { +0.0f, +1.0f, +0.0f },
+
+    // CELL_FACE_NEG_Y
+    { +0.0f, -1.0f, +0.0f },
+
+    // CELL_FACE_POS_Z
+    { +0.0f, +0.0f, +1.0f },
+
+    // CELL_FACE_NEG_Z
+    { +0.0f, +0.0f, -1.0f },
+};
+
+static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][4][2] = {
+    // CELL_FACE_POS_X
+    {
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
     },
 
-    // FACE_NEG_Z
+    // CELL_FACE_NEG_X
     {
-	{{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {0, 0}},
-	{{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {0, 1}},
-	{{-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {1, 1}},
-	{{-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS}, {0, 0, -1}, {1, 0}},
-    }
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
+    },
+
+    // CELL_FACE_POS_Y
+    {
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
+    },
+
+    // CELL_FACE_NEG_Y
+    {
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
+    },
+
+    // CELL_FACE_POS_Z
+    {
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
+    },
+
+    // CELL_FACE_NEG_Z
+    {
+	{+0.0f, +0.0f},
+	{+1.0f, +0.0f},
+	{+1.0f, +1.0f},
+	{+0.0f, +1.0f},
+    },
 };
 
 typedef struct GpuMesh GpuMesh;
@@ -128,6 +231,23 @@ struct GpuMesh
 
     size_t vertex_count;
     size_t index_count;
+};
+
+typedef struct SectorFace SectorFace;
+struct SectorFace
+{
+    vec3 world_position;
+    
+    ECellFace cell_face;
+    EBlockType block_type;
+};
+
+typedef struct SectorMesh SectorMesh;
+struct SectorMesh
+{
+    SectorFace sector_face_array[SECTOR_VOLUME_IN_VERTICES];
+
+    u32 count;
 };
 
 typedef struct GLContext GLContext;
@@ -142,42 +262,6 @@ struct GLContext
     GLuint texture_id;
 };
 
-typedef struct SectorFace SectorFace;
-struct SectorFace
-{
-    vec3 position;
-    u8 face;
-    u8 block_type;
-};
-
-typedef struct SectorMesh SectorMesh;
-struct SectorMesh
-{
-    SectorFace sector_face_array[SECTOR_VOLUME_IN_VERTICES];
-
-    u32 count;
-};
-
-typedef enum EBlockType EBlockType;
-enum EBlockType
-{
-    BlockType_None,
-    BlockType_Lion,
-    BlockType_Eagle,
-    BlockType_Wolf,
-    BlockType_Horse,
-
-    BlockType_COUNT,
-};
-
-static const char* BLOCK_TYPE_TO_STRING[BlockType_COUNT] = {
-    "BlockType_None",
-    "BlockType_Lion",
-    "BlockType_Eagle",
-    "BlockType_Wolf",
-    "BlockType_Horse"
-};
-
 typedef struct Cell Cell;
 struct Cell
 {
@@ -185,7 +269,7 @@ struct Cell
     u32 cell_index;
     
     EBlockType block_type;
-    VisibilityMask visibility_mask;
+    CellFaceMask cell_face_mask;
 };
 
 typedef struct Sector Sector;
@@ -299,6 +383,13 @@ void map_indices_to_world_coordinate(u32 sector_index, u32 cell_index, ivec3 out
     glm_ivec3_add(out_world_coordinate, cell_coordinate, out_world_coordinate);
 }
 
+void map_world_coordinate_to_position(ivec3 world_coordinate, vec3 out_world_position)
+{
+    out_world_position[0] = (f32)world_coordinate[0];
+    out_world_position[1] = (f32)world_coordinate[1];
+    out_world_position[1] = (f32)world_coordinate[2];
+}
+
 boolean map_is_solid(u32 x, u32 y, u32 z)
 {   
     if (x >= WORLD_SIZE_IN_CELLS || y >= WORLD_SIZE_IN_CELLS || z >= WORLD_SIZE_IN_CELLS)
@@ -314,23 +405,23 @@ boolean map_is_solid(u32 x, u32 y, u32 z)
     Sector* sector = &world.sector_array[sector_index];
     Cell* cell = &sector->cell_array[cell_index];
 
-    return cell->block_type != BlockType_None;
+    return cell->block_type != BLOCK_TYPE_NONE;
 }
 
-VisibilityMask map_compute_visibility_at(u32 x, u32 y, u32 z)
+CellFaceMask map_get_cell_face_mask(u32 x, u32 y, u32 z)
 {
-    VisibilityMask mask = 0;
+    CellFaceMask cell_face_mask = 0;
 
-    if (!map_is_solid(x + 1, y, z)) mask |= FACE_POS_X;
-    if (!map_is_solid(x - 1, y, z)) mask |= FACE_NEG_X;
+    if (!map_is_solid(x + 1, y, z)) cell_face_mask |= CELL_FACE_MASK_POS_X;
+    if (!map_is_solid(x - 1, y, z)) cell_face_mask |= CELL_FACE_MASK_NEG_X;
 
-    if (!map_is_solid(x, y + 1, z)) mask |= FACE_POS_Y;
-    if (!map_is_solid(x, y - 1, z)) mask |= FACE_NEG_Y;
+    if (!map_is_solid(x, y + 1, z)) cell_face_mask |= CELL_FACE_MASK_POS_Y;
+    if (!map_is_solid(x, y - 1, z)) cell_face_mask |= CELL_FACE_MASK_NEG_Y;
 
-    if (!map_is_solid(x, y, z + 1)) mask |= FACE_POS_Z;
-    if (!map_is_solid(x, y, z - 1)) mask |= FACE_NEG_Z;
+    if (!map_is_solid(x, y, z + 1)) cell_face_mask |= CELL_FACE_MASK_POS_Z;
+    if (!map_is_solid(x, y, z - 1)) cell_face_mask |= CELL_FACE_MASK_NEG_Z;
 
-    return mask;
+    return cell_face_mask;
 }
 
 void map_init()
@@ -350,9 +441,9 @@ void map_init()
 	    Cell* cell = &sector->cell_array[cell_index];
 	    cell->sector_index = sector_index;
 	    cell->cell_index = cell_index;
-	    cell->visibility_mask = 0;
+	    cell->cell_face_mask = 0;
 
-	    EBlockType block_type = (rand() % BlockType_COUNT);
+	    EBlockType block_type = (EBlockType)(rand() % BLOCK_TYPE_COUNT);
 	    cell->block_type = block_type;
 	}
     }
@@ -369,7 +460,7 @@ void map_init()
 	    
 	    map_indices_to_world_coordinate(sector_index, cell_index, world_coordinate);
 
-	    cell->visibility_mask = map_compute_visibility_at(
+	    cell->cell_face_mask = map_get_cell_face_mask(
 		world_coordinate[0],
 		world_coordinate[1],
 		world_coordinate[2]
@@ -472,20 +563,9 @@ void setup_opengl()
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-void render_emit_sector_mesh_face(ivec3 world_coordinate, VisibilityMask face_mask, EBlockType block_type)
+void render_emit_sector_mesh_face(ivec3 world_coordinate, CellFaceMask cell_face_mask, EBlockType block_type)
 {
-    u32 sector_index = map_world_coordinate_to_sector_index(world_coordinate);
 
-    SectorMesh* sector_mesh = &sector_mesh_array[sector_index];
-    SectorFace* sector_face = &sector_mesh->sector_face_array[sector_mesh->count];
-
-    sector_face->face = face_mask;
-    sector_face->block_type = block_type;
-    sector_face->position[0] = (f32)world_coordinate[0];
-    sector_face->position[1] = (f32)world_coordinate[1];
-    sector_face->position[2] = (f32)world_coordinate[2];
-
-    sector_mesh->count += 1;
 }
 
 void render_generate_sector_mesh(u32 sector_index)
@@ -495,52 +575,45 @@ void render_generate_sector_mesh(u32 sector_index)
     
     Sector* sector = &world.sector_array[sector_index];
 
+    SectorMesh* sector_mesh = &sector_mesh_array[sector->sector_index];
+    sector_mesh->count = 0;
+
     for (cell_index = 0; cell_index < SECTOR_VOLUME_IN_CELLS; ++cell_index)
     {
 	Cell* cell = &sector->cell_array[cell_index];
 
-	if (cell->block_type == BlockType_None)
+	if (cell->block_type == BLOCK_TYPE_NONE)
 	{
 	    continue;
 	}
 	    
 	map_indices_to_world_coordinate(sector_index, cell_index, world_coordinate);
 
-	if (cell->visibility_mask & FACE_POS_X)
-	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_POS_X, cell->block_type);
-	}
+	vec3 world_position;
+	map_world_coordinate_to_position(world_coordinate, world_position);
 
-	if (cell->visibility_mask & FACE_NEG_X)
-	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_NEG_X, cell->block_type);	    
-	}
+	CellFaceMask cell_face_mask_test = cell->cell_face_mask;
 
-	if (cell->visibility_mask & FACE_POS_Y)
+	while (cell_face_mask_test)
 	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_POS_Y, cell->block_type);	    
-	}
+	    ECellFace cell_face = (ECellFace)__builtin_ctz(cell_face_mask_test);
 
-	if (cell->visibility_mask & FACE_NEG_Y)
-	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_NEG_Y, cell->block_type);	    
-	}
+	    SectorFace* sector_face = &sector_mesh->sector_face_array[sector_mesh->count];
 
-	if (cell->visibility_mask & FACE_POS_Z)
-	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_POS_Z, cell->block_type);	    
-	}
+	    sector_face->cell_face = cell_face;
+	    sector_face->block_type = cell->block_type;
+	    glm_vec3_copy(world_position, sector_face->world_position);
 
-	if (cell->visibility_mask & FACE_NEG_Z)
-	{
-	    render_emit_sector_mesh_face(world_coordinate, FACE_NEG_Z, cell->block_type);	    
+	    sector_mesh->count += 1;
+
+	    cell_face_mask_test &= cell_face_mask_test - 1;
 	}
     }
 }
 
 void render_upload_sector_mesh_to_gpu(u32 sector_index)
 {
-
+    
 }
 
 void render_init()
@@ -550,6 +623,11 @@ void render_init()
     for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
     {
 	render_generate_sector_mesh(sector_index);
+    }
+
+    for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
+    {
+	render_upload_sector_mesh_to_gpu(sector_index);
     }
 }
 
