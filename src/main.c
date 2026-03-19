@@ -14,7 +14,7 @@
 
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
-#define WINDOW_TITLE "OpenGL Test"
+#define WINDOW_TITLE "Voxel Test"
 
 #define CELL_RADIUS 0.5f
 #define CELL_SIZE (2.0f * CELL_RADIUS)
@@ -106,56 +106,56 @@ struct VertexData
     f32 uv_array[2];
 };
 
-#define VERTICES_PER_FACE 4
-#define INDICES_PER_FACE 6
+#define VERTEX_COUNT_PER_FACE 4
+#define INDEX_COUNT_PER_FACE 6
 
-static f32 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][VERTICES_PER_FACE][3] = {
+static f32 CELL_FACE_VERTEX_ARRAY[CELL_FACE_COUNT][VERTEX_COUNT_PER_FACE][3] = {
     // CELL_FACE_POS_X
     {
 	{+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
-	{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-	{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
 	{+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+	{+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+	{+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
     
     // CELL_FACE_NEG_X
     {
         {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
-        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
     },
 
     // CELL_FACE_POS_Y
     {
         {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
-        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
-        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
     },
 
     // CELL_FACE_NEG_Y
     {
         {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-        {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
 
     // CELL_FACE_POS_Z
     {
-        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
-        {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
-        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
         {+CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, +CELL_RADIUS},
+        {-CELL_RADIUS, -CELL_RADIUS, +CELL_RADIUS},
     },
 
     // CELL_FACE_NEG_Z
     {
-        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
-        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
-        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
         {-CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
+        {-CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, +CELL_RADIUS, -CELL_RADIUS},
+        {+CELL_RADIUS, -CELL_RADIUS, -CELL_RADIUS},
     },
 };
 
@@ -179,7 +179,7 @@ static f32 CELL_FACE_NORMAL_ARRAY[CELL_FACE_COUNT][3] = {
     { +0.0f, +0.0f, -1.0f },
 };
 
-static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][VERTICES_PER_FACE][3] = {
+static f32 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][VERTEX_COUNT_PER_FACE][3] = {
     // CELL_FACE_POS_X
     {
 	{+0.0f, +0.0f},
@@ -308,6 +308,27 @@ struct World
     Sector sector_array[WORLD_VOLUME_IN_SECTORS];
 };
 
+typedef struct Input Input;
+struct Input
+{
+    int current_key_array[GLFW_KEY_LAST + 1];
+    int previous_key_array[GLFW_KEY_LAST + 1];
+
+    int current_button_array[GLFW_MOUSE_BUTTON_LAST + 1];
+    int previous_button_array[GLFW_MOUSE_BUTTON_LAST + 1];
+
+    f64 mouse_current_x;
+    f64 mouse_previous_x;
+
+    f64 mouse_current_y;
+    f64 mouse_previous_y;
+    
+    f64 mouse_delta_x;
+    f64 mouse_delta_y;
+
+    boolean ignore_delta;
+};
+
 typedef struct Camera Camera;
 struct Camera
 {
@@ -316,9 +337,13 @@ struct Camera
 
     mat4 projection_matrix;
     mat4 view_matrix;
+
+    f32 speed;
+    f32 sensitivity;
 };
 
 static World world;
+static Input input;
 static Camera camera;
 
 static GLContext gl_context;
@@ -517,6 +542,41 @@ void map_init()
     }
 }
 
+void input_init()
+{
+    input.mouse_current_x = 0.0;
+    input.mouse_current_y = 0.0;
+
+    input.mouse_previous_x = 0.0;
+    input.mouse_previous_y = 0.0;
+
+    input.mouse_delta_x = 0.0;
+    input.mouse_delta_y = 0.0;
+
+    input.ignore_delta = True;
+}
+
+void input_update()
+{
+    glfwGetCursorPos(gl_context.window, &input.mouse_current_x, &input.mouse_current_y);
+    
+    if (input.ignore_delta == True)
+    {
+	input.mouse_delta_x = 0.0;
+	input.mouse_delta_y = 0.0;
+	
+	input.ignore_delta = False;
+    }
+    else
+    {
+	input.mouse_delta_x = (f32)(input.mouse_current_x - input.mouse_previous_x);
+	input.mouse_delta_y = (f32)(input.mouse_current_y - input.mouse_previous_y);
+    }
+
+    input.mouse_previous_x = input.mouse_current_x;
+    input.mouse_previous_y = input.mouse_current_y;
+}
+
 void camera_get_forward(vec3 out_forward)
 {
     f32 rotation_x = glm_rad(camera.rotation[0]);
@@ -568,12 +628,11 @@ void camera_get_view_matrix(mat4 out_view_matrix)
     vec3 forward;
     camera_get_forward(forward);
     
-    vec3 target_position;
-    vec3 world_up = {0.0f, 1.0f, 0.0f};
+    vec3 center;
     
-    glm_vec3_add(camera.world_position, forward, target_position);
+    glm_vec3_add(camera.world_position, forward, center);
     
-    glm_lookat(camera.world_position, target_position, world_up, out_view_matrix);
+    glm_lookat(camera.world_position, center, GLM_YUP, out_view_matrix);
 }
 
 void camera_init()
@@ -586,15 +645,84 @@ void camera_init()
     camera.rotation[1] = -90.0f;
     camera.rotation[2] = 0.0f;
 
+    camera.speed = 12.0f;
+    camera.sensitivity = 0.1f;
+
     camera_get_projection_matrix(camera.projection_matrix);
 }
 
-void camera_update()
+void camera_update(f32 dt)
 {
+    vec3 input_value;
+    input_value[0] = 0.0f;
+    input_value[1] = 0.0f;
+    input_value[2] = 0.0f;
+
+    if (glfwGetKey(gl_context.window, GLFW_KEY_A) == GLFW_PRESS)
+    {
+	input_value[0] -= 1.0f;
+    }
+    
+    if (glfwGetKey(gl_context.window, GLFW_KEY_D) == GLFW_PRESS)
+    {
+	input_value[0] += 1.0f;
+    }
+
+    if (glfwGetKey(gl_context.window, GLFW_KEY_Q) == GLFW_PRESS)
+    {
+	input_value[1] -= 1.0f;
+    }
+    
+    if (glfwGetKey(gl_context.window, GLFW_KEY_E) == GLFW_PRESS)
+    {
+	input_value[1] += 1.0f;
+    }
+
+    if (glfwGetKey(gl_context.window, GLFW_KEY_W) == GLFW_PRESS)
+    {
+	input_value[2] += 1.0f;
+    }
+    
+    if (glfwGetKey(gl_context.window, GLFW_KEY_S) == GLFW_PRESS)
+    {
+	input_value[2] -= 1.0f;
+    }
+
+    glm_vec3_normalize(input_value);
+
+    vec3 velocity_forward;
+    vec3 velocity_right;
+    vec3 velocity_up;
+    
+    vec3 camera_forward;
+    vec3 camera_right;
+    
+    camera_get_forward(camera_forward);
+    glm_vec3_scale(camera_forward, input_value[2], velocity_forward);
+
+    camera_get_right(camera_right);
+    glm_vec3_scale(camera_right, input_value[0], velocity_right);
+
+    glm_vec3_scale(GLM_YUP, input_value[1], velocity_up);
+
+    vec3 velocity;
+    
+    glm_vec3_add(velocity_forward, velocity_right, velocity);
+    glm_vec3_add(velocity, velocity_up, velocity);
+    glm_vec3_scale(velocity, camera.speed * dt, velocity);
+
+    glm_vec3_add(camera.world_position, velocity, camera.world_position);
+    
+    camera.rotation[0] -= camera.sensitivity * input.mouse_delta_y;
+    camera.rotation[1] += camera.sensitivity * input.mouse_delta_x;
+
+    if (camera.rotation[0] > 89.9f) camera.rotation[0] = 89.9f;
+    if (camera.rotation[0] < -89.9f) camera.rotation[0] = -89.9f;
+    
     camera_get_view_matrix(camera.view_matrix);
 }
 
-void setup_opengl()
+void render_setup_opengl()
 {
     int glfw_result = glfwInit();
     
@@ -660,13 +788,17 @@ void setup_opengl()
     glGenTextures(1, &gl_context.texture_id);
     glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data_array);
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    glfwSetInputMode(gl_context.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     gl_check_error("setup");
+
+    LOG_INFO("OpenGL Setup");
 }
 
 void render_generate_sector_mesh(u32 sector_index)
@@ -723,7 +855,7 @@ void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
     u32 base_index = gpu_mesh->vertex_count;
     
     u32 vertex_index;
-    for (vertex_index = 0; vertex_index < VERTICES_PER_FACE; ++vertex_index)
+    for (vertex_index = 0; vertex_index < VERTEX_COUNT_PER_FACE; ++vertex_index)
     {
 	const f32* vertex_array = CELL_FACE_VERTEX_ARRAY[sector_face->cell_face][vertex_index];
 	const f32* uv_array = CELL_FACE_UV_ARRAY[sector_face->cell_face][vertex_index];
@@ -752,7 +884,7 @@ void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
     gpu_mesh->index_array[gpu_mesh->index_count + 4] = base_index + 2;
     gpu_mesh->index_array[gpu_mesh->index_count + 5] = base_index + 3;
 
-    gpu_mesh->index_count += INDICES_PER_FACE;
+    gpu_mesh->index_count += INDEX_COUNT_PER_FACE;
 }
 
 void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
@@ -770,8 +902,8 @@ void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
     
     map_world_coordinate_to_position(world_coordinate, gpu_mesh->world_position);
 
-    u32 required_vertex_capacity = sector_mesh->count * VERTICES_PER_FACE;
-    u32 required_index_capacity = sector_mesh->count * INDICES_PER_FACE;
+    u32 required_vertex_capacity = sector_mesh->count * VERTEX_COUNT_PER_FACE;
+    u32 required_index_capacity = sector_mesh->count * INDEX_COUNT_PER_FACE;
 
     if (gpu_mesh->vertex_capacity < required_vertex_capacity)
     {
@@ -873,9 +1005,7 @@ void render_upload_gpu_mesh(u32 sector_index)
 
 void render_init()
 {
-    setup_opengl();
-
-    LOG_INFO("OpenGL Setup");
+    render_setup_opengl();
     
     u32 sector_index;
     
@@ -945,17 +1075,30 @@ int main()
 {
     log_init();
     map_init();
+    input_init();
     camera_init();
     render_init();
     
     while (!glfwWindowShouldClose(gl_context.window))
     {
+	static f64 last_time = 0.0;
+
+	f64 current_time = glfwGetTime();
+
+	f32 dt = (last_time > 0.0)
+	    ? (f32)(current_time - last_time)
+	    : 0.0f;
+
+	last_time = current_time;
+	
 	if (glfwGetKey(gl_context.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
 	    glfwSetWindowShouldClose(gl_context.window, 1);
 	}
 	
-	camera_update();
+	input_update();
+	camera_update(dt);
+	
 	render_update();
     }
 
