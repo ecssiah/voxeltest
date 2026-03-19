@@ -19,7 +19,7 @@
 #define CELL_RADIUS 0.5f
 #define CELL_SIZE (2.0f * CELL_RADIUS)
 
-#define WORLD_SIZE_IN_SECTORS_LOG2 3
+#define WORLD_SIZE_IN_SECTORS_LOG2 4
 #define WORLD_SIZE_IN_SECTORS (1 << WORLD_SIZE_IN_SECTORS_LOG2)
 #define WORLD_VOLUME_IN_SECTORS (1 << (3 * WORLD_SIZE_IN_SECTORS_LOG2))
 
@@ -344,8 +344,8 @@ static Input input;
 static Camera camera;
 
 static GLContext gl_context;
-static SectorMesh sector_mesh_array[SECTOR_VOLUME_IN_CELLS];
-static GpuMesh gpu_mesh_array[SECTOR_VOLUME_IN_CELLS];
+static SectorMesh sector_mesh_array[WORLD_VOLUME_IN_SECTORS];
+static GpuMesh gpu_mesh_array[WORLD_VOLUME_IN_SECTORS];
 
 boolean map_world_coordinate_is_valid(u32 x, u32 y, u32 z)
 {
