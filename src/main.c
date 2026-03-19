@@ -18,9 +18,8 @@
 
 #define CELL_RADIUS 0.5f
 #define CELL_SIZE (2.0f * CELL_RADIUS)
-#define CELL_VOLUME (CELL_SIZE * CELL_SIZE * CELL_SIZE)
 
-#define WORLD_SIZE_IN_SECTORS_LOG2 1
+#define WORLD_SIZE_IN_SECTORS_LOG2 3
 #define WORLD_SIZE_IN_SECTORS (1 << WORLD_SIZE_IN_SECTORS_LOG2)
 #define WORLD_VOLUME_IN_SECTORS (1 << (3 * WORLD_SIZE_IN_SECTORS_LOG2))
 
@@ -30,7 +29,7 @@
 
 #define WORLD_SIZE_MASK_IN_SECTORS (WORLD_SIZE_IN_SECTORS - 1)
 
-#define SECTOR_SIZE_IN_CELLS_LOG2 1
+#define SECTOR_SIZE_IN_CELLS_LOG2 3
 #define SECTOR_SIZE_IN_CELLS (1 << SECTOR_SIZE_IN_CELLS_LOG2)
 #define SECTOR_VOLUME_IN_CELLS (1 << (3 * SECTOR_SIZE_IN_CELLS_LOG2))
 
@@ -41,9 +40,7 @@
 #define SECTOR_SIZE_MASK_IN_CELLS (SECTOR_SIZE_IN_CELLS - 1)
 
 #define WORLD_SIZE_IN_CELLS (WORLD_SIZE_IN_SECTORS * SECTOR_SIZE_IN_CELLS)
-#define WORLD_VOLUME_IN_CELLS (WORLD_SIZE_IN_CELLS * WORLD_SIZE_IN_CELLS * WORLD_SIZE_IN_CELLS)
-
-#define SECTOR_VOLUME_IN_VERTICES (SECTOR_VOLUME_IN_CELLS * 6)
+#define WORLD_VOLUME_IN_CELLS (1 << (3 * (WORLD_SIZE_IN_SECTORS_LOG2 + SECTOR_SIZE_IN_CELLS_LOG2)))
 
 typedef enum ECellFace ECellFace;
 enum ECellFace
@@ -261,7 +258,7 @@ struct SectorFace
 typedef struct SectorMesh SectorMesh;
 struct SectorMesh
 {
-    SectorFace sector_face_array[SECTOR_VOLUME_IN_VERTICES];
+    SectorFace sector_face_array[SECTOR_VOLUME_IN_CELLS * 6];
 
     u32 count;
 };
@@ -385,7 +382,7 @@ void map_sector_index_to_coordinate(u32 sector_index, ivec3 out_sector_coordinat
     
     out_sector_coordinate[0] = sector_index & WORLD_SIZE_MASK_IN_SECTORS;
     out_sector_coordinate[1] = (sector_index >> WORLD_SIZE_IN_SECTORS_LOG2) & WORLD_SIZE_MASK_IN_SECTORS;
-    out_sector_coordinate[2] = sector_index >> (2 * WORLD_SIZE_IN_SECTORS_LOG2);
+    out_sector_coordinate[2] = sector_index >> (2 * WORLD_SIZE_IN_SECTORS_LOG2) & WORLD_SIZE_MASK_IN_SECTORS;
 }
 
 u32 map_cell_coordinate_to_index(ivec3 cell_coordinate)
@@ -408,7 +405,7 @@ void map_cell_index_to_coordinate(u32 cell_index, ivec3 out_cell_coordinate)
     
     out_cell_coordinate[0] = cell_index & SECTOR_SIZE_MASK_IN_CELLS;
     out_cell_coordinate[1] = (cell_index >> SECTOR_SIZE_IN_CELLS_LOG2) & SECTOR_SIZE_MASK_IN_CELLS;
-    out_cell_coordinate[2] = cell_index >> (2 * SECTOR_SIZE_IN_CELLS_LOG2);
+    out_cell_coordinate[2] = cell_index >> (2 * SECTOR_SIZE_IN_CELLS_LOG2) & SECTOR_SIZE_MASK_IN_CELLS;
 }
 
 u32 map_world_coordinate_to_sector_index(ivec3 world_coordinate)
@@ -471,7 +468,7 @@ void map_world_coordinate_to_position(ivec3 world_coordinate, vec3 out_world_pos
 {
     out_world_position[0] = (f32)world_coordinate[0];
     out_world_position[1] = (f32)world_coordinate[1];
-    out_world_position[1] = (f32)world_coordinate[2];
+    out_world_position[2] = (f32)world_coordinate[2];
 }
 
 boolean map_is_solid(u32 x, u32 y, u32 z)
@@ -519,6 +516,10 @@ void map_set_block_type(u32 x, u32 y, u32 z, EBlockType block_type)
 	
 	world.sector_array[sector_index].cell_array[cell_index].block_type = block_type;
     }
+    else
+    {
+	LOG_WARN("Block set at invalid coordinate: %u %u %u", x, y, z);
+    }
 }
 
 void map_init()
@@ -531,7 +532,7 @@ void map_init()
 
     u32 sector_index;
     u32 cell_index;
-    
+
     for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
     {
 	Sector* sector = &world.sector_array[sector_index];
@@ -544,14 +545,18 @@ void map_init()
 	    cell->cell_index = cell_index;
 	    cell->cell_face_mask = 0;
 
-	    /* EBlockType block_type = (EBlockType)(rand() % BLOCK_TYPE_COUNT); */
-	    /* cell->block_type = block_type; */
-
-	    cell->block_type = BLOCK_TYPE_NONE;
+	    if (rand() % 100 < 1)
+	    {
+		EBlockType block_type = (EBlockType)(rand() % BLOCK_TYPE_COUNT);
+		
+		cell->block_type = block_type;
+	    }
+	    else
+	    {
+		cell->block_type = BLOCK_TYPE_NONE;
+	    }
 	}
     }
-
-    map_set_block_type(0, 0, 0, BLOCK_TYPE_EAGLE);
 
     ivec3 world_coordinate;
     
