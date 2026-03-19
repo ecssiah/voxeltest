@@ -5,6 +5,32 @@
 #include <stdlib.h>
 #include <glad/glad.h>
 
+const char* gl_error_string(GLenum err)
+{
+    switch (err)
+    {
+        case GL_INVALID_ENUM: return "GL_INVALID_ENUM";
+        case GL_INVALID_VALUE: return "GL_INVALID_VALUE";
+        case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+        case GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
+        case GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
+        default: return "UNKNOWN_ERROR";
+    }
+}
+
+void gl_check_error(const char* label)
+{
+    GLenum err;
+
+    while ((err = glGetError()) != GL_NO_ERROR)
+    {
+        printf("GL ERROR [%s]: %s (0x%x)\n",
+               label,
+               gl_error_string(err),
+               err);
+    }
+}
+
 char* read_file(const char *path)
 {
     FILE* file = fopen(path, "rb");
