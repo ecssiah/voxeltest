@@ -275,6 +275,15 @@ struct GLContext
     GLint u_model_location;
 };
 
+typedef struct Timing Timing;
+struct Timing
+{
+    f64 previous_time;
+    f64 current_time;
+
+    f32 dt;
+};
+
 typedef struct Cell Cell;
 struct Cell
 {
@@ -335,6 +344,7 @@ struct Camera
 
 static World world;
 static Input input;
+static Timing timing;
 static Camera camera;
 
 static GLContext gl_context;
@@ -682,7 +692,7 @@ void camera_init()
     camera_get_projection_matrix(camera.projection_matrix);
 }
 
-void camera_update(f32 dt)
+void camera_update()
 {
     vec3 input_value;
     input_value[0] = 0.0f;
@@ -740,7 +750,7 @@ void camera_update(f32 dt)
     
     glm_vec3_add(velocity_forward, velocity_right, velocity);
     glm_vec3_add(velocity, velocity_up, velocity);
-    glm_vec3_scale(velocity, camera.speed * dt, velocity);
+    glm_vec3_scale(velocity, camera.speed * timing.dt, velocity);
 
     glm_vec3_add(camera.world_position, velocity, camera.world_position);
     
@@ -920,8 +930,6 @@ void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
 
 void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
 {
-    LOG_INFO("Sector Index: %u", sector_index);
-    
     SectorMesh* sector_mesh = &sector_mesh_array[sector_index];
     GpuMesh* gpu_mesh = &gpu_mesh_array[sector_index];
 
@@ -956,8 +964,6 @@ void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
 	gpu_mesh->index_array = new_index_data;
     }
 
-    LOG_INFO("GpuMesh Capacities Updated");
-    
     u32 face_index;
     for (face_index = 0; face_index < sector_mesh->count; ++face_index)
     {
@@ -965,8 +971,6 @@ void render_convert_sector_mesh_to_gpu_mesh(u32 sector_index)
 
 	render_emit_sector_face(sector_face, gpu_mesh);
     }
-
-    LOG_INFO("GL Buffers Setup");
 }
 
 void render_upload_gpu_mesh(u32 sector_index)
@@ -1037,6 +1041,8 @@ void render_upload_gpu_mesh(u32 sector_index)
 void render_init()
 {
     render_setup_opengl();
+
+    LOG_INFO("OpenGL Setup");
     
     u32 sector_index;
     
@@ -1069,8 +1075,6 @@ void render_update()
     glUniformMatrix4fv(gl_context.u_projection_location, 1, GL_FALSE, (float*)camera.projection_matrix);
     glUniformMatrix4fv(gl_context.u_view_location, 1, GL_FALSE, (float*)camera.view_matrix);
 
-    gl_check_error("render update prepare");
-    
     u32 sector_index;
     for (sector_index = 0; sector_index < WORLD_VOLUME_IN_SECTORS; ++sector_index)
     {
@@ -1094,12 +1098,27 @@ void render_update()
 	    GL_UNSIGNED_INT,
 	    0
 	);
-
-	gl_check_error("sector draw");
     }
 
     glfwSwapBuffers(gl_context.window);
     glfwPollEvents();
+}
+
+void timing_init()
+{
+    timing.current_time = 0.0;
+    timing.previous_time = 0.0;
+}
+
+void timing_update()
+{
+    timing.current_time = glfwGetTime();
+
+    timing.dt = (timing.previous_time > 0.0)
+	? (f32)(timing.current_time - timing.previous_time)
+	: 0.0f;
+
+    timing.previous_time = timing.current_time;
 }
 
 int main()
@@ -1112,15 +1131,7 @@ int main()
     
     while (!glfwWindowShouldClose(gl_context.window))
     {
-	static f64 last_time = 0.0;
-
-	f64 current_time = glfwGetTime();
-
-	f32 dt = (last_time > 0.0)
-	    ? (f32)(current_time - last_time)
-	    : 0.0f;
-
-	last_time = current_time;
+	timing_update();
 	
 	if (glfwGetKey(gl_context.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
@@ -1128,7 +1139,7 @@ int main()
 	}
 	
 	input_update();
-	camera_update(dt);
+	camera_update();
 	
 	render_update();
     }
