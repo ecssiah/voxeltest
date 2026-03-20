@@ -1137,3 +1137,4 @@ int main()
 
     log_destroy();
 }
+
