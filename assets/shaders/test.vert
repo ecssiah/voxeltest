@@ -15,6 +15,6 @@ void main()
 {
      gl_Position = u_projection_matrix * u_view_matrix * u_model_matrix *  vec4(a_position, 1.0);
 
-     v_normal = mat3(u_model_matrix) * a_normal;
+     v_normal = a_normal;
      v_uv = a_uv;
 }

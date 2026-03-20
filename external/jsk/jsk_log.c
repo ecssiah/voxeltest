@@ -6,6 +6,10 @@
 #include <string.h>
 #include <time.h>
 
+static FILE* JSK_LOG_FILE;
+static char JSK_LOG_BASE_PATH[256];
+static char JSK_CURRENT_DAY_STRING[11];
+
 static const char* LOG_LEVEL_TO_STRING[LOG_LEVEL_COUNT] =
 {
     "TRACE",
@@ -15,19 +19,16 @@ static const char* LOG_LEVEL_TO_STRING[LOG_LEVEL_COUNT] =
     "FATAL"
 };
 
-static FILE* LOG_FILE;
-static char LOG_BASE_PATH[256];
-static char CURRENT_DAY_CHAR[11];
 
 void log_init()
 {
     const char* directory_name = "log/";
 
-    strncpy(LOG_BASE_PATH, directory_name, sizeof(LOG_BASE_PATH) - 1);
+    strncpy(JSK_LOG_BASE_PATH, directory_name, sizeof(JSK_LOG_BASE_PATH) - 1);
 
-    if (!LOG_FILE)
+    if (!JSK_LOG_FILE)
     {
-        LOG_FILE = stderr;
+        JSK_LOG_FILE = stderr;
     }
 
     LOG_INFO("\n\nLOGGING INIT\n");
@@ -35,9 +36,9 @@ void log_init()
 
 void log_message(ELogLevel log_level, const char* file, int line, const char* fmt, ...)
 {
-    if (!LOG_FILE)
+    if (!JSK_LOG_FILE)
     {
-        LOG_FILE = stderr;
+        JSK_LOG_FILE = stderr;
     }
 
     time_t now = time(NULL);
@@ -47,22 +48,22 @@ void log_message(ELogLevel log_level, const char* file, int line, const char* fm
     char file_timestamp[11];
     strftime(file_timestamp, sizeof(file_timestamp), "%Y_%m_%d", &tm_info);
 
-    if (LOG_BASE_PATH[0] != '\0' && strcmp(file_timestamp, CURRENT_DAY_CHAR) != 0)
+    if (JSK_LOG_BASE_PATH[0] != '\0' && strcmp(file_timestamp, JSK_CURRENT_DAY_STRING) != 0)
     {
-        if (LOG_FILE && LOG_FILE != stderr)
+        if (JSK_LOG_FILE && JSK_LOG_FILE != stderr)
         {
-            fclose(LOG_FILE);
+            fclose(JSK_LOG_FILE);
         }
 
-        strncpy(CURRENT_DAY_CHAR, file_timestamp, sizeof(CURRENT_DAY_CHAR) - 1);
+        strncpy(JSK_CURRENT_DAY_STRING, file_timestamp, sizeof(JSK_CURRENT_DAY_STRING) - 1);
 
         char path[512];
-        snprintf(path, sizeof(path), "%sengine_%s.log", LOG_BASE_PATH, file_timestamp);
+        snprintf(path, sizeof(path), "%sengine_%s.log", JSK_LOG_BASE_PATH, file_timestamp);
 
-        LOG_FILE = fopen(path, "a");
-        if (!LOG_FILE)
+        JSK_LOG_FILE = fopen(path, "a");
+        if (!JSK_LOG_FILE)
         {
-            LOG_FILE = stderr;
+            JSK_LOG_FILE = stderr;
         }
     }
 
@@ -86,10 +87,10 @@ void log_message(ELogLevel log_level, const char* file, int line, const char* fm
         line
     );
 
-    if (LOG_FILE && LOG_FILE != stderr) 
+    if (JSK_LOG_FILE && JSK_LOG_FILE != stderr) 
     {
         fprintf(
-            LOG_FILE, 
+            JSK_LOG_FILE, 
             "[%s] [%s] (%s:%d) ",
             timestamp,
             LOG_LEVEL_TO_STRING[log_level],
@@ -106,9 +107,9 @@ void log_message(ELogLevel log_level, const char* file, int line, const char* fm
 
     vfprintf(stderr, fmt, args);
 
-    if (LOG_FILE && LOG_FILE != stderr)
+    if (JSK_LOG_FILE && JSK_LOG_FILE != stderr)
     {
-        vfprintf(LOG_FILE, fmt, args_copy);
+        vfprintf(JSK_LOG_FILE, fmt, args_copy);
     }
 
     va_end(args_copy);
@@ -116,19 +117,19 @@ void log_message(ELogLevel log_level, const char* file, int line, const char* fm
 
     fprintf(stderr, "\n");
 
-    if (LOG_FILE && LOG_FILE != stderr) 
+    if (JSK_LOG_FILE && JSK_LOG_FILE != stderr) 
     {
-        fprintf(LOG_FILE, "\n");
-        fflush(LOG_FILE);
+        fprintf(JSK_LOG_FILE, "\n");
+        fflush(JSK_LOG_FILE);
     }
 
     if (log_level == LOG_LEVEL_FATAL)
     {
         fflush(stderr);
 
-        if (LOG_FILE && LOG_FILE != stderr) 
+        if (JSK_LOG_FILE && JSK_LOG_FILE != stderr) 
         {
-            fflush(LOG_FILE);
+            fflush(JSK_LOG_FILE);
         }
 
         exit(EXIT_FAILURE);
@@ -139,8 +140,8 @@ void log_destroy()
 {
     LOG_INFO("\n\nLOGGING SHUTDOWN\n");
 
-    if (LOG_FILE && LOG_FILE != stderr)
+    if (JSK_LOG_FILE && JSK_LOG_FILE != stderr)
     {
-        fclose(LOG_FILE);
+        fclose(JSK_LOG_FILE);
     }
 }
