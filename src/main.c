@@ -356,6 +356,8 @@ static GLContext gl_context;
 
 static JSK_Config* block_types_config;
 
+static int block_type_layer_array[BLOCK_TYPE_COUNT - 1];
+
 static SectorMesh sector_mesh_array[WORLD_VOLUME_IN_SECTORS];
 static GpuMesh gpu_mesh_array[WORLD_VOLUME_IN_SECTORS];
 
@@ -481,6 +483,20 @@ void map_world_coordinate_to_position(ivec3 world_coordinate, vec3 out_world_pos
     out_world_position[0] = (f32)world_coordinate[0];
     out_world_position[1] = (f32)world_coordinate[1];
     out_world_position[2] = (f32)world_coordinate[2];
+}
+
+BlockType map_block_type_from_string(const char* str)
+{
+    int i;
+    for (i = 0; i < BLOCK_TYPE_COUNT; ++i)
+    {
+        if (strcmp(str, BLOCK_TYPE_TO_STRING[i]) == 0)
+        {
+            return (BlockType)i;
+        }
+    }
+
+    return BLOCK_TYPE_NONE;
 }
 
 boolean map_is_solid(u32 x, u32 y, u32 z)
@@ -774,7 +790,7 @@ void render_load_texture_config()
     block_types_config = jsk_load_config(texture_config_path);
 }
 
-void render_load_texture(const char* texture_path, const BlockType block_type)
+void render_load_texture(const char* texture_path, const GLint layer_index)
 {
     int width;
     int height;
@@ -792,7 +808,7 @@ void render_load_texture(const char* texture_path, const BlockType block_type)
 	0,
 	0,
 	0,
-	(GLint)block_type,
+	layer_index,
 	width,
 	height,
 	1,
@@ -815,17 +831,30 @@ void render_load_textures(const char* textures_path)
 	GL_RGBA8,
 	TEXTURE_SIZE,
 	TEXTURE_SIZE,
-	BLOCK_TYPE_COUNT - 1,
+	BLOCK_TYPE_COUNT,
 	0,
 	GL_RGBA,
 	GL_UNSIGNED_BYTE,
 	NULL
     );
 
-    render_load_texture("assets/textures/lion.png", BLOCK_TYPE_LION);
-    render_load_texture("assets/textures/eagle.png", BLOCK_TYPE_EAGLE);
-    render_load_texture("assets/textures/wolf.png", BLOCK_TYPE_WOLF);
-    render_load_texture("assets/textures/horse.png", BLOCK_TYPE_HORSE);
+    int layer_index;
+    for (layer_index = 0; layer_index < block_types_config->entry_count; ++layer_index)
+    {
+	JSK_ConfigEntry* entry = &block_types_config->config_entry_array[layer_index];
+
+	char texture_path[256];
+	
+	snprintf(texture_path, sizeof(texture_path), "%s/%s", textures_path, entry->value);
+
+	LOG_INFO("%d %s", layer_index, texture_path);
+
+	BlockType block_type = map_block_type_from_string(entry->key);
+
+	block_type_layer_array[(int)block_type] = layer_index;
+	
+	render_load_texture(texture_path, layer_index);
+    }
 }
 
 void render_setup_opengl()
@@ -965,7 +994,7 @@ void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
 	vertex_data.uv_array[0] = uv_array[0];
 	vertex_data.uv_array[1] = uv_array[1];
 
-	vertex_data.layer_index = (f32)sector_face->block_type;
+	vertex_data.layer_index = (f32)sector_face->block_type - 1.0f;
 
 	gpu_mesh->vertex_array[gpu_mesh->vertex_count] = vertex_data;
 
