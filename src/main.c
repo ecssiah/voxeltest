@@ -847,8 +847,6 @@ void render_load_textures(const char* textures_path)
 	
 	snprintf(texture_path, sizeof(texture_path), "%s/%s", textures_path, entry->value);
 
-	LOG_INFO("%d %s", layer_index, texture_path);
-
 	BlockType block_type = map_block_type_from_string(entry->key);
 
 	block_type_layer_array[(int)block_type] = layer_index;
