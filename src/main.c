@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -10,11 +11,14 @@
 
 #include "jsk.h"
 #include "jsk_log.h"
+#include "jsk_config.h"
 #include "jsk_gl.h"
 
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 #define WINDOW_TITLE "Voxel Test"
+
+#define TEXTURE_SIZE 64
 
 #define CELL_RADIUS 0.5f
 #define CELL_SIZE (2.0f * CELL_RADIUS)
@@ -45,7 +49,7 @@
 typedef enum CellFace CellFace;
 enum CellFace
 {
-    CELL_FACE_POS_X = 0,
+    CELL_FACE_POS_X,
     CELL_FACE_NEG_X,
     CELL_FACE_POS_Y,
     CELL_FACE_NEG_Y,
@@ -72,7 +76,7 @@ typedef u8 CellFaceMask;
 typedef enum BlockType BlockType;
 enum BlockType
 {
-    BLOCK_TYPE_NONE = 0,
+    BLOCK_TYPE_NONE,
     BLOCK_TYPE_LION,
     BLOCK_TYPE_EAGLE,
     BLOCK_TYPE_WOLF,
@@ -95,6 +99,7 @@ struct VertexData
     f32 position_array[3];
     f32 normal_array[3];
     f32 uv_array[2];
+    f32 layer_index;
 };
 
 #define VERTEX_COUNT_PER_FACE 4
@@ -223,6 +228,8 @@ static vec3 CELL_FACE_UV_ARRAY[CELL_FACE_COUNT][VERTEX_COUNT_PER_FACE] = {
 typedef struct GpuMesh GpuMesh;
 struct GpuMesh
 {
+    vec3 world_position;
+    
     GLuint vao_id;
     GLuint vbo_id;
     GLuint ebo_id;
@@ -236,8 +243,6 @@ struct GpuMesh
     
     u32 index_count;
     u32 index_capacity;
-
-    vec3 world_position;
 };
 
 typedef struct SectorFace SectorFace;
@@ -252,7 +257,7 @@ struct SectorFace
 typedef struct SectorMesh SectorMesh;
 struct SectorMesh
 {
-    SectorFace sector_face_array[SECTOR_VOLUME_IN_CELLS * 6];
+    SectorFace sector_face_array[SECTOR_VOLUME_IN_CELLS * CELL_FACE_COUNT];
 
     u32 count;
 };
@@ -266,7 +271,7 @@ struct GLContext
     GLuint vao_id;
     GLuint vbo_id;
 
-    GLuint texture_id;
+    GLuint texture_array_id;
 
     GLint u_texture_sampler_location;
 
@@ -348,6 +353,9 @@ static Timing timing;
 static Camera camera;
 
 static GLContext gl_context;
+
+static JSK_Config* block_types_config;
+
 static SectorMesh sector_mesh_array[WORLD_VOLUME_IN_SECTORS];
 static GpuMesh gpu_mesh_array[WORLD_VOLUME_IN_SECTORS];
 
@@ -549,18 +557,17 @@ void map_init()
 	    cell->cell_index = cell_index;
 	    cell->cell_face_mask = 0;
 
-	    /* if (rand() % 100 < 1) */
-	    /* { */
-	    /* 	BlockType block_type = (BlockType)(rand() % BLOCK_TYPE_COUNT); */
+	    if (rand() % 100 < 5)
+	    {
+		int block_type_index = rand() % BLOCK_TYPE_COUNT;
+		BlockType block_type = (BlockType)(block_type_index);
 		
-	    /* 	cell->block_type = block_type; */
-	    /* } */
-	    /* else */
-	    /* { */
-	    /* 	cell->block_type = BLOCK_TYPE_NONE; */
-	    /* } */
-
-	    cell->block_type = BLOCK_TYPE_EAGLE;
+		cell->block_type = block_type;
+	    }
+	    else
+	    {
+		cell->block_type = BLOCK_TYPE_NONE;
+	    }
 	}
     }
 
@@ -678,12 +685,12 @@ void camera_get_view_matrix(mat4 out_view_matrix)
 
 void camera_init()
 {
-    camera.world_position[0] = 0.0f;
-    camera.world_position[1] = 5.0f;
-    camera.world_position[2] = 10.0f;
+    camera.world_position[0] = 12.0f;
+    camera.world_position[1] = 12.0f;
+    camera.world_position[2] = 0.0f;
 
     camera.rotation[0] = 0.0f;
-    camera.rotation[1] = -90.0f;
+    camera.rotation[1] = 0.0f;
     camera.rotation[2] = 0.0f;
 
     camera.speed = 16.0f;
@@ -694,10 +701,7 @@ void camera_init()
 
 void camera_update()
 {
-    vec3 input_value;
-    input_value[0] = 0.0f;
-    input_value[1] = 0.0f;
-    input_value[2] = 0.0f;
+    vec3 input_value = { 0.0f, 0.0f, 0.0f };
 
     if (glfwGetKey(gl_context.window, GLFW_KEY_A) == GLFW_PRESS)
     {
@@ -763,6 +767,67 @@ void camera_update()
     camera_get_view_matrix(camera.view_matrix);
 }
 
+void render_load_texture_config()
+{
+    const char* texture_config_path = "config/block_types.ini";
+
+    block_types_config = jsk_load_config(texture_config_path);
+}
+
+void render_load_texture(const char* texture_path, const BlockType block_type)
+{
+    int width;
+    int height;
+    int channels;
+
+    unsigned char* pixel_data_array = stbi_load(texture_path, &width, &height, &channels, 4);
+
+    assert(width == TEXTURE_SIZE && height == TEXTURE_SIZE);
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexSubImage3D(
+	GL_TEXTURE_2D_ARRAY,
+	0,
+	0,
+	0,
+	(GLint)block_type,
+	width,
+	height,
+	1,
+	GL_RGBA,
+	GL_UNSIGNED_BYTE,
+	pixel_data_array
+    );
+
+    LOG_INFO("Loaded texture: %s", texture_path);
+}
+
+void render_load_textures(const char* textures_path)
+{
+    glGenTextures(1, &gl_context.texture_array_id);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, gl_context.texture_array_id);
+
+    glTexImage3D(
+	GL_TEXTURE_2D_ARRAY,
+	0,
+	GL_RGBA8,
+	TEXTURE_SIZE,
+	TEXTURE_SIZE,
+	BLOCK_TYPE_COUNT - 1,
+	0,
+	GL_RGBA,
+	GL_UNSIGNED_BYTE,
+	NULL
+    );
+
+    render_load_texture("assets/textures/lion.png", BLOCK_TYPE_LION);
+    render_load_texture("assets/textures/eagle.png", BLOCK_TYPE_EAGLE);
+    render_load_texture("assets/textures/wolf.png", BLOCK_TYPE_WOLF);
+    render_load_texture("assets/textures/horse.png", BLOCK_TYPE_HORSE);
+}
+
 void render_setup_opengl()
 {
     int glfw_result = glfwInit();
@@ -820,24 +885,10 @@ void render_setup_opengl()
     free(vert_src);
     free(frag_src);
 
-    int width;
-    int height;
-    int channels;
-    
-    unsigned char* pixel_data_array = stbi_load("assets/textures/lion.png", &width, &height, &channels, 4);
-
-    glGenTextures(1, &gl_context.texture_id);
-    glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data_array);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    render_load_texture_config();
+    render_load_textures("assets/textures");
 
     glfwSetInputMode(gl_context.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    gl_check_error("setup");
 
     LOG_INFO("OpenGL Setup");
 }
@@ -886,20 +937,21 @@ void render_generate_sector_mesh(u32 sector_index)
 
 void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
 {
-    vec3 local_position;
-    local_position[0] = (f32)sector_face->cell_coordinate[0];
-    local_position[1] = (f32)sector_face->cell_coordinate[1];
-    local_position[2] = (f32)sector_face->cell_coordinate[2];
+    vec3 local_position = {
+	(f32)sector_face->cell_coordinate[0],
+	(f32)sector_face->cell_coordinate[1],
+	(f32)sector_face->cell_coordinate[2]
+    };
 
-    const f32* normal_array = CELL_FACE_NORMAL_ARRAY[sector_face->cell_face];
+    f32* normal_array = CELL_FACE_NORMAL_ARRAY[sector_face->cell_face];
 
     u32 base_index = gpu_mesh->vertex_count;
     
     u32 vertex_index;
     for (vertex_index = 0; vertex_index < VERTEX_COUNT_PER_FACE; ++vertex_index)
     {
-	const f32* vertex_array = CELL_FACE_VERTEX_ARRAY[sector_face->cell_face][vertex_index];
-	const f32* uv_array = CELL_FACE_UV_ARRAY[sector_face->cell_face][vertex_index];
+	f32* vertex_array = CELL_FACE_VERTEX_ARRAY[sector_face->cell_face][vertex_index];
+	f32* uv_array = CELL_FACE_UV_ARRAY[sector_face->cell_face][vertex_index];
 
 	VertexData vertex_data;
 	vertex_data.position_array[0] = local_position[0] + vertex_array[0];
@@ -912,6 +964,8 @@ void render_emit_sector_face(SectorFace* sector_face, GpuMesh* gpu_mesh)
 
 	vertex_data.uv_array[0] = uv_array[0];
 	vertex_data.uv_array[1] = uv_array[1];
+
+	vertex_data.layer_index = (f32)sector_face->block_type;
 
 	gpu_mesh->vertex_array[gpu_mesh->vertex_count] = vertex_data;
 
@@ -1015,9 +1069,19 @@ void render_upload_gpu_mesh(u32 sector_index)
 	(void*)(offsetof(VertexData, uv_array))
     );
 
+    glVertexAttribPointer(
+	3,
+	1,
+	GL_FLOAT,
+	GL_FALSE,
+	sizeof(VertexData),
+	(void*)(offsetof(VertexData, layer_index))
+    );
+
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
 
     glBufferData(
 	GL_ARRAY_BUFFER,
@@ -1070,7 +1134,7 @@ void render_update()
     glUseProgram(gl_context.program_id);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, gl_context.texture_id);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, gl_context.texture_array_id);
 
     glUniformMatrix4fv(gl_context.u_projection_location, 1, GL_FALSE, (float*)camera.projection_matrix);
     glUniformMatrix4fv(gl_context.u_view_location, 1, GL_FALSE, (float*)camera.view_matrix);
